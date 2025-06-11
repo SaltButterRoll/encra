@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}ENCRA{% endblock %}</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Arial, sans-serif;
+        }
+        
+        body {
+            display: flex;
+            min-height: 100vh;
+            background-color: #f8f9fa;
+        }
+        
+        /* 탑바 스타일 */
+        .topbar {
+            position: fixed;
+            top: 0;
+            right: 0;
+            left: 200px;
+            height: 60px;
+            background-color: white;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 24px;
+            z-index: 100;
+        }
+
+        .topbar-title {
+            color: #1e293b;
+            font-size: 24px;
+            font-weight: 600;
+        }
+
+        .user-email {
+            color: #4B5563;
+            font-size: 20px;
+            font-weight: 500;
+        }
+        
+        /* 사이드바 스타일 */
+        .sidebar {
+            width: 200px;
+            background-color: #1e293b;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+            position: fixed;
+            left: 0;
+            top: 0;
+            bottom: 0;
+        }
+        
+        .logo {
+            padding: 24px 0;
+            text-align: center;
+            font-size: 32px;
+            font-weight: 700;
+            margin-bottom: 32px;
+        }
+        
+        .nav-item {
+            padding: 16px 24px;
+            font-size: 20px;
+            color: #f8fafc;
+            text-decoration: none;
+            display: block;
+            transition: background-color 0.2s;
+        }
+        
+        .nav-item:hover {
+            background-color: #334155;
+        }
+        
+        .nav-item.active {
+            background-color: #3b82f6;
+        }
+        
+        /* 메인 컨텐츠 영역 */
+        .main-content {
+            margin-left: 200px;
+            width: calc(100% - 200px);
+            padding: 80px 20px 20px; /* 탑바 높이만큼 상단 패딩 추가 */
+            background-color: #f8f9fa;
+        }
+        
+        /* 버튼 스타일 */
+        .btn {
+            background-color: #3b82f6;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 10px 20px;
+            font-size: 22px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        
+        .btn:hover {
+            background-color: #2563eb;
+        }
+        
+        .btn-outline {
+            background-color: transparent;
+            border: 2px solid #3b82f6;
+            color: #3b82f6;
+        }
+        
+        .btn-outline:hover {
+            background-color: #3b82f6;
+            color: white;
+        }
+        
+        /* 이미지 미리보기 영역 */
+        .preview-box {
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            background-color: white;
+            min-height: 400px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        /* 반응형 레이아웃 */
+        @media (max-width: 768px) {
+            .sidebar {
+                width: 220px;
+            }
+            
+            .main-content {
+                margin-left: 220px;
+                width: calc(100% - 220px);
+            }
+
+            .topbar {
+                left: 220px;
+            }
+        }
+        
+        /* 기타 레이아웃 요소 */
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .page-title {
+            font-size: 24px;
+            margin-bottom: 20px;
+            color: #1e293b;
+        }
+    </style>
+    {% block additional_styles %}{% endblock %}
+    {% block head_content %}{% endblock %}
+</head>
+<body>
+    <!-- 탑바 -->
+    <div class="topbar">
+        <div class="topbar-title">{% block page_title %}ENCRA{% endblock %}</div>
+        <div class="user-email" id="userEmail"></div>
+    </div>
+
+    <!-- 사이드바 -->
+    <div class="sidebar">
+        <a href="/" class="logo" style="text-decoration: none; color: inherit;">ENCRA</a>
+        <nav>
+            <a href="{{ url_for('encryption_view.show_encrypt_page') }}" class="nav-item {% if request.endpoint == 'encryption_view.show_encrypt_page' %}active{% endif %}">이미지 암호화</a>
+            <a href="{{ url_for('decryption_view.show_decrypt_page') }}" class="nav-item {% if request.endpoint == 'decryption_view.show_decrypt_page' %}active{% endif %}">이미지 복호화</a>
+        </nav>
+    </div>
+    
+    <!-- 메인 컨텐츠 -->
+    <div class="main-content">
+        {% block content %}{% endblock %}
+    </div>
+    
+    {% block scripts %}{% endblock %}
+    <script>
+        // 사용자 이메일 표시 함수
+        async function displayUserEmail() {
+            try {
+                const response = await fetch('/auth/check');
+                const data = await response.json();
+                const userEmailElement = document.getElementById('userEmail');
+                
+                if (data.email) {
+                    userEmailElement.textContent = data.email;
+                } else {
+                    userEmailElement.textContent = '';
+                }
+            } catch (error) {
+                // 사용자 이메일 확인 실패 처리
+            }
+        }
+
+        // 페이지 로드 시 이메일 표시
+        window.addEventListener('load', displayUserEmail);
+    </script>
+</body>
+</html> 

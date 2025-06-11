@@ -1,0 +1,398 @@
+{% extends "layout.html" %}
+
+{% block title %}Encra - 홈{% endblock %}
+
+{% block additional_styles %}
+<style>
+  /* 전체 화면 중앙 정렬 및 패딩 */
+  .main-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+    padding: 20px 10px;
+    background-color: #f9fafb;
+  }
+
+  /* 내부 콘텐츠 박스 */
+  .content-wrapper {
+    width: 100%;
+    max-width: 960px;
+    padding: 48px 32px;
+    background: #fff;
+    border-radius: 16px;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+  .page-heading {
+    font-size: 2.2rem;
+    font-weight: 800;
+    color: #1e3a8a;
+    margin-bottom: 28px;
+  }
+/* 공통 스타일 */
+  #auth-status {
+    font-size: 1.3rem;
+    font-weight: 600;
+    margin-bottom: 28px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    padding: 16px 24px;
+    border-radius: 12px;
+    transition: all 0.3s ease-in-out;
+  }
+  
+  /* 성공 메시지 */
+  #auth-status.success {
+    color: #166534; /* 초록 계열 (Tailwind: green-800) */
+    border: 2px solid #22c55e;
+  }
+
+  /* 실패 메시지 */
+  #auth-status.error {
+    color: #c2410c; /* 강조는 있지만 부드러운 주황-붉은색 */
+    border: 2px solid #f56565;
+  }
+
+  /* 이메일 발송 완료 메시지 (새로 추가) */
+  #auth-status.email-sent {
+    color: #1e40af; /* 파란색 텍스트 */
+    border: 2px solid #3b82f6;
+    animation: pulse 2s ease-in-out 3; /* 3번 펄스 애니메이션 */
+  }
+
+  /* 펄스 애니메이션 정의 */
+  @keyframes pulse {
+    0%, 100% { 
+      transform: scale(1);
+      box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7);
+    }
+    50% { 
+      transform: scale(1.02);
+      box-shadow: 0 0 0 15px rgba(59, 130, 246, 0);
+    }
+  }
+
+  /* 기본 상태 (인증 확인 중) */
+  #auth-status.checking {
+    color: #6b7280;
+    background-color: #f9fafb;
+    border: 2px solid #d1d5db;
+  }
+
+  /* 인증 후 버튼 그룹 */
+  .action-buttons {
+    display: flex;
+    gap: 32px;
+    margin-top: 48px;
+    justify-content: center;
+    flex-wrap: nowrap; /* 줄바꿈 방지 */
+  }
+
+  /* 키오스크 스타일 버튼 */
+  .kiosk-btn {
+    font-size: 1.4rem;
+    padding: 20px 40px;
+    border-radius: 12px;
+    border: none;
+    background: #1976d2;
+    color: #fff;
+    font-weight: 700;
+    box-shadow: 0 2px 8px rgba(25, 118, 210, 0.15);
+    cursor: pointer;
+    transition: background 0.2s, transform 0.1s;
+    min-width: 220px;
+    min-height: 70px;
+    text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+  }
+
+  .kiosk-btn:hover {
+    background: #125ea2;
+    transform: scale(1.03);
+  }
+
+  /* 인증 필요 안내 영역 */
+  .auth-section {
+    margin-top: 24px;
+    text-align: center;
+  }
+
+  .auth-section p {
+    font-size: 1rem;
+    color: #444;
+    margin-bottom: 16px;
+  }
+
+  .auth-section .btn {
+    padding: 10px 24px;
+    font-size: 1rem;
+    border-radius: 8px;
+    background: #1976d2;
+    color: white;
+    border: none;
+    text-decoration: none;
+    display: inline-block;
+    transition: background 0.2s;
+  }
+
+  .auth-section .btn:hover {
+    background: #125ea2;
+  }
+  .guide-section {
+    max-width: 960px;
+    width: 100%;
+    padding: 40px;
+    background: #f1f5f9;
+    border-radius: 16px;
+    text-align: center;
+  }
+
+  .guide-section h2 {
+    font-size: 1.8rem;
+    font-weight: 800;
+    margin-bottom: 16px;
+    color: #1e3a8a;
+  }
+
+  .guide-section p {
+    font-size: 1rem;
+    color: #444;
+    margin-bottom: 32px;
+  }
+
+  .step-container {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(220px, 1fr));
+    gap: 24px;
+    justify-items: center;
+  }
+
+  .step-box {
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    width: 100%;
+    max-width: 360px;
+    min-height: 140px;
+    /* 👇 Flexbox 세로 구성 */
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    text-align: center;
+  }
+
+  .step-box h3 {
+    font-size: 1.1rem;
+    color: #0f172a;
+    margin-bottom: 8px;
+  }
+
+  .step-box p {
+    font-size: 0.95rem;
+    color: #555;
+    margin-top: auto;   /* 아래쪽에서 공간 차지 */
+    margin-bottom: auto; /* 위에서 공간 차지 → 수직 중앙 */
+  }
+  /* 반응형 대응 */
+  @media (max-width: 600px) {
+    .kiosk-btn {
+      font-size: 1rem;
+      padding: 16px 20px;
+      min-width: 160px;
+      min-height: 60px;
+    }
+    .content-wrapper {
+      padding: 32px 16px;
+    }
+    .action-buttons {
+      gap: 16px;
+    }
+  }
+</style>
+
+{% endblock %}
+
+{% block content %}
+<div class="main-container">
+  <div class="content-wrapper">
+    <div class="page-heading">Encra 이미지 보안 서비스</div>
+    <div id="auth-status">
+      인증 상태 확인 중...
+    </div>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }}">{{ message }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+    <div id="action-buttons" style="display: none;">
+      <div class="action-buttons">
+        <a href="{{ url_for('encryption_view.show_encrypt_page') }}" class="kiosk-btn">🔐 이미지 암호화</a>
+        <a href="{{ url_for('decryption_view.show_decrypt_page') }}" class="kiosk-btn">🔓 이미지 복호화</a>
+      </div>
+    </div>
+    <div id="auth-section" class="auth-section">
+      <p>서비스를 사용하기 위해서는 이메일 인증을 해주세요.</p>
+      <a href="{{ url_for('auth.request_auth') }}" class="btn">이메일 인증하기</a>
+    </div>
+  </div>
+
+  <div class="guide-section">
+    <h2>🛡️ Encra란?</h2>
+    <p>Encra는 민감한 이미지의 특정 부분(예: 얼굴, 문서 등)을 선택해 암호화하고, <br>안전하게 전송할 수 있도록 도와주는 이미지 보안 시스템입니다.</p>
+
+    <div class="step-container">
+      <div class="step-box">
+        <h3>① 이미지 업로드</h3>
+        <p>암호화할 이미지를 선택합니다.</p>
+      </div>
+      <div class="step-box">
+        <h3>② 암호화 영역 지정</h3>
+        <p>드래그하여 보호할 영역을 선택합니다.</p>
+      </div>
+      <div class="step-box">
+        <h3>③ 수신자 이메일 입력</h3>
+        <p>여러 명의 이메일을 입력해 한 파일로 <br>여러 명에게 첨부할 수 있습니다.</p>
+      </div>
+      <div class="step-box">
+        <h3>④ 이미지 다운로드</h3>
+        <p>암호화된 이미지를 저장하고 전송하세요.</p>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // 알림 메시지를 자동으로 숨기는 함수
+  function hideAlerts() {
+    const alerts = document.querySelectorAll('.alert');
+    alerts.forEach(alert => {
+      setTimeout(() => {
+        alert.style.transition = 'opacity 0.5s ease-in-out';
+        alert.style.opacity = '0';
+        setTimeout(() => {
+          alert.remove();
+        }, 500);
+      }, 5000);
+    });
+  }
+
+  async function checkAuthStatus() {
+    try {
+      const response = await fetch('/auth/check');
+      const data = await response.json();
+      const authStatus = document.getElementById('auth-status');
+      const actionButtons = document.getElementById('action-buttons');
+      const authSection = document.getElementById('auth-section');
+      
+      if (data.has_key) {
+        authStatus.innerHTML = '✅ 개인키가 설정되어 있습니다.';
+        authStatus.className = 'success'; // 색상 클래스 적용
+        actionButtons.style.display = 'flex';
+        authSection.style.display = 'none';
+      } else {
+        authStatus.innerHTML = '❌ 개인키가 없습니다. 이메일 인증이 필요합니다.';
+        authStatus.className = 'error'; // 색상 클래스 적용
+        actionButtons.style.display = 'none';
+        authSection.style.display = 'block';
+      }
+    } catch (error) {
+      // 인증 상태 확인 실패 처리
+      const authStatus = document.getElementById('auth-status');
+      authStatus.innerHTML = '⚠️ 인증 상태 확인 중 오류가 발생했습니다.';
+      authStatus.className = 'error';
+    }
+  }
+
+  // 한글 주석: 이메일 발송 완료 메시지를 처리하는 함수
+  function handleEmailSentMessage() {
+    const authStatus = document.getElementById('auth-status');
+    
+    // 한글 주석: Flash 메시지에서 이메일 발송 메시지 확인
+    const successAlerts = document.querySelectorAll('.alert-success');
+    let emailSentMessage = '';
+    
+    successAlerts.forEach(alert => {
+      if (alert.textContent.includes('인증 메일이 발송되었습니다') || 
+          alert.textContent.includes('이메일을 확인해주세요')) {
+        emailSentMessage = alert.textContent.trim();
+        // 한글 주석: 기존 alert 숨기기 (authStatus에서 더 눈에 띄게 표시할 예정)
+        alert.style.display = 'none';
+      }
+    });
+    
+    // 한글 주석: 이메일 발송 관련 메시지인지 확인 (기존 조건 + Flash 메시지 확인)
+    if (authStatus.innerHTML.includes('인증 메일이 발송되었습니다') || 
+        authStatus.innerHTML.includes('이메일을 확인해주세요') ||
+        emailSentMessage) {
+      
+      authStatus.className = 'email-sent';
+      authStatus.innerHTML = `
+        📧 <strong>인증 메일이 발송되었습니다!</strong><br>
+        <span style="font-size: 1.1rem; margin-top: 8px; display: block;">
+          📮 이메일함을 확인하고 인증 링크를 클릭해주세요
+        </span>
+        <span style="font-size: 0.95rem; color: #64748b; margin-top: 6px; display: block;">
+          메일이 보이지 않으면 스팸함도 확인해보세요
+        </span>
+      `;
+      
+      // 한글 주석: 15초 후 기본 인증 필요 메시지로 변경 (시간 연장)
+      setTimeout(() => {
+        authStatus.innerHTML = '❌ 개인키가 없습니다. 이메일 인증이 필요합니다.';
+        authStatus.className = 'error';
+      }, 15000);
+    }
+  }
+  
+  window.onload = () => {
+    // 한글 주석: 기본 상태를 checking으로 설정
+    const authStatus = document.getElementById('auth-status');
+    authStatus.className = 'checking';
+    
+    checkAuthStatus();
+    hideAlerts();
+    
+    // 한글 주석: 페이지 로드 후 이메일 발송 메시지 확인 (다중 시도로 안정성 확보)
+    setTimeout(handleEmailSentMessage, 100);
+    setTimeout(handleEmailSentMessage, 500);
+    setTimeout(handleEmailSentMessage, 1000);
+    
+    // 한글 주석: URL 파라미터로 이메일 발송 완료 상태 확인
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('email_sent') === 'true') {
+      setTimeout(() => {
+        const authStatus = document.getElementById('auth-status');
+        authStatus.className = 'email-sent';
+        authStatus.innerHTML = `
+          📧 <strong>인증 메일이 발송되었습니다!</strong><br>
+          <span style="font-size: 1.1rem; margin-top: 8px; display: block;">
+            📮 이메일함을 확인하고 인증 링크를 클릭해주세요
+          </span>
+          <span style="font-size: 0.95rem; color: #64748b; margin-top: 6px; display: block;">
+            메일이 보이지 않으면 스팸함도 확인해보세요
+          </span>
+        `;
+        
+        setTimeout(() => {
+          authStatus.innerHTML = '❌ 개인키가 없습니다. 이메일 인증이 필요합니다.';
+          authStatus.className = 'error';
+        }, 15000);
+      }, 200);
+    }
+  };
+</script>
+{% endblock %}

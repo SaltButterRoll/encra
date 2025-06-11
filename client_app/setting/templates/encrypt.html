@@ -1,0 +1,828 @@
+{% extends "layout.html" %}
+
+{% block title %}이미지 암호화 - ENCRA{% endblock %}
+
+{% block page_title %}이미지 암호화{% endblock %}
+
+{% block head_content %}
+<script src="{{ url_for('static', filename='js/roi_selector.js') }}"></script>
+{% endblock %}
+
+{% block additional_styles %}
+<style>
+    .encrypt-container {
+        padding: 20px;
+        max-width: 1400px; /* 한글 주석: 전체 컨테이너 크기 증가로 미리보기 영역 확장 */
+    }
+    
+    /* 두 컬럼 레이아웃 */
+    .encrypt-layout {
+        display: flex;
+        gap: 24px;
+        margin-top: 20px;
+    }
+    
+    .left-column {
+        flex: 1;
+        min-width: 0; /* 플렉스박스 오버플로우 방지 */
+    }
+    
+    .right-column {
+        width: 300px; /* 한글 주석: 우측 패널 크기 축소로 미리보기 영역 더 넓게 확보 */
+        position: sticky;
+        top: 20px;
+        align-self: flex-start;
+        margin-top: 38px; /* 한글 주석: canvas-guide 높이에 맞춰 정렬 (18px + 10px margin + 10px 여유) */
+    }
+    
+    .canvas-container {
+        width: 100%;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        background-color: #f8fafc;
+        aspect-ratio: 4/3;
+        min-height: 400px;
+        max-height: 600px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 20px;
+        position: relative;
+    }
+
+    .canvas-wrapper {
+        position: relative;
+        min-width: 100%;
+        min-height: 100%;
+    }
+    
+    #previewCanvas {
+        max-width: 100%;
+        max-height: 100%; /* 한글 주석: 캔버스가 컨테이너 높이를 넘지 않도록 제한 */
+        display: block;
+        margin: 0 auto;
+    }
+
+    .canvas-guide {
+        margin-bottom: 10px;
+        font-size: 18px;
+        color: #4B5563;
+    }
+
+    .canvas-guide.pdf-mode {
+        display: none; /* PDF 모드일 때는 숨김 */
+    }
+
+    .canvas-guide.pdf-mode.active {
+        display: block; /* PDF 모드 활성화 시 표시 */
+    }
+
+    .canvas-placeholder {
+        position: absolute;
+        color: #9ca3af;
+        font-size: 16px;
+        text-align: center;
+        pointer-events: none;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+    }
+
+    .canvas-placeholder.pdf-mode {
+        display: none;
+    }
+
+    .loading-spinner {
+        display: none;
+        width: 50px;
+        height: 50px;
+        border: 5px solid #f3f3f3;
+        border-top: 5px solid #2563EB;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+    }
+
+    @keyframes spin {
+        0% { transform: translate(-50%, -50%) rotate(0deg); }
+        100% { transform: translate(-50%, -50%) rotate(360deg); }
+    }
+
+    #pdfPageControls {
+        display: none;
+        text-align: center;
+        margin-top: 16px;
+    }
+
+    #pdfPageControls button {
+        background-color: #2563EB;
+        color: white;
+        padding: 12px 24px;
+        border: none;
+        border-radius: 8px;
+        font-size: 16px;
+        font-weight: 600;
+        cursor: pointer;
+        margin: 0 8px;
+    }
+
+    #pdfPageControls button:hover {
+        background-color: #1D4ED8;
+    }
+
+    #pdfPageControls button:disabled {
+        background-color: #9CA3AF;
+        cursor: not-allowed;
+    }
+
+    #pageInfo {
+        display: inline-block;
+        padding: 12px 24px;
+        font-size: 16px;
+        font-weight: 600;
+        color: #4B5563;
+    }
+
+    .roi-box {
+        position: absolute;
+        border: 2px solid #2563EB;
+        background-color: rgba(37, 99, 235, 0.1);
+        cursor: move;
+    }
+
+    .roi-box .delete-btn {
+        position: absolute;
+        top: -10px;
+        right: -10px;
+        width: 20px;
+        height: 20px;
+        background-color: #EF4444;
+        color: white;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: bold;
+        opacity: 0;
+        transition: opacity 0.2s;
+    }
+
+    .roi-box:hover .delete-btn {
+        opacity: 1;
+    }
+
+    .recipient-container {
+            margin-bottom: 20px;
+    }
+    .recipient-input-group {
+        position: relative; /* 상대 위치 기준 설정 */
+        display: flex;
+        align-items: center;
+        margin-bottom: 14px;
+    }
+
+    .recipient-input-group input {
+        width: 100%;
+        padding: 8px;
+        font-size: 16px;
+        border: 1px solid #ddd;
+        border-radius: 6px;
+    }
+    .add-recipient-btn {
+        background: #28a745;
+        color: white;
+        border: none;
+        padding: 10px 14px; /* 약간 더 큼 */
+        font-size: 16px;     /* 글씨 크기 명확히 지정 */
+        font-weight: 600;
+        border-radius: 6px;
+        cursor: pointer;
+        width: 100%;
+        margin-top: 6px;
+    }
+    .remove-recipient-btn {
+        position: absolute;
+        top: 50%;
+        right: 6px;
+        transform: translateY(-50%);
+        background: #ffffff;
+        color: rgb(0, 0, 0);
+        border: none;
+        font-size: 16px;
+        font-weight: bold;
+        padding: 4px 8px;
+        border-radius: 6px;
+        cursor: pointer;
+        z-index: 10;
+    }
+    .add-recipient-btn:hover {
+            background: #218838;
+    }
+    .remove-recipient-btn:hover {
+        background: #f87171;
+    }
+    
+    .upload-btn {
+        background-color: #4F46E5;
+        color: white;
+        padding: 12px 24px;
+        border: none;
+        border-radius: 8px;
+        font-size: 16px;
+        font-weight: 600;
+        cursor: pointer;
+        margin-bottom: 20px;
+    }
+    
+    .upload-btn:hover {
+        background-color: #4338CA;
+    }
+    
+    .encrypt-form {
+        background-color: white;
+        border-radius: 8px;
+        padding: 20px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        border: 1px solid #e5e7eb;
+    }
+    
+    .form-group {
+        margin-bottom: 20px;
+    }
+    
+    .form-group label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: 500;
+    }
+    
+    .form-group input {
+        width: 100%;
+        padding: 12px 14px;  /* 기존보다 padding 증가 */
+        font-size: 15px;     /* placeholder가 잘리지 않도록 글자 크기 지정 */
+        line-height: 1.4;    /* 줄 간격 추가로 가독성 개선 */
+        border: 1px solid #d1d5db;
+        border-radius: 6px;
+    }
+
+    
+    .action-btn {
+        background-color: #2563EB;
+        color: white;
+        padding: 12px 24px;
+        border: none;
+        border-radius: 8px;
+        font-size: 16px;
+        font-weight: 600;
+        cursor: pointer;
+        width: 100%;
+    }
+    
+    .action-btn:hover {
+        background-color: #1D4ED8;
+    }
+    
+    .action-btn:disabled {
+        background-color: #9CA3AF;
+        cursor: not-allowed;
+    }
+    .canvas-container {
+        position: relative; /* ← 추가 필요 시 */
+    }
+
+    .canvas-guide {
+        margin-bottom: 10px;
+        font-size: 18px;
+        color: #4B5563;
+    }
+    .canvas-placeholder {
+        position: absolute;
+        color: #9ca3af;
+        font-size: 16px;
+        text-align: center;
+        pointer-events: none;
+    }
+
+    .error {
+        color: #DC2626;
+        margin-top: 5px;
+        font-size: 14px;
+    }
+    .back-btn {
+        background-color: #6b7280;
+        color: white;
+        padding: 12px 24px;
+        border: none;
+        border-radius: 8px;
+        font-size: 16px;
+        font-weight: 600;
+        text-align: center;
+        text-decoration: none;
+        display: block;
+        margin-top: 12px;
+        transition: background-color 0.2s;
+    }
+
+    .back-btn:hover {
+        background-color: #4b5563;
+    }
+    /* 반응형 레이아웃 */
+    @media (max-width: 900px) {
+        .encrypt-layout {
+            flex-direction: column;
+        }
+        
+        .right-column {
+            width: 100%;
+            position: static;
+        }
+    }
+
+    /* 품질 슬라이더 스타일 */
+    #qualitySlider {
+        -webkit-appearance: none;
+        appearance: none;
+        height: 6px;
+        background: linear-gradient(to right, #3B82F6 0%, #1D4ED8 50%, #1E3A8A 100%);
+        border-radius: 3px;
+        outline: none;
+        cursor: pointer;
+    }
+
+    #qualitySlider::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 20px;
+        height: 20px;
+        background: #2563EB;
+        border-radius: 50%;
+        cursor: pointer;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        transition: all 0.2s ease;
+    }
+
+    #qualitySlider::-webkit-slider-thumb:hover {
+        background: #1D4ED8;
+        transform: scale(1.1);
+    }
+
+    #qualitySlider::-moz-range-thumb {
+        width: 20px;
+        height: 20px;
+        background: #2563EB;
+        border-radius: 50%;
+        cursor: pointer;
+        border: none;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        transition: all 0.2s ease;
+    }
+
+    #qualitySlider::-moz-range-thumb:hover {
+        background: #1D4ED8;
+        transform: scale(1.1);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="encrypt-container">
+    <div class="encrypt-layout">
+        <div class="left-column">
+            <div class="canvas-guide">🖱️ 드래그하여 암호화할 영역을 선택하세요. 우클릭으로 마지막 선택 영역을 삭제할 수 있습니다.</div>
+            <div class="canvas-guide pdf-mode">📄 PDF 페이지를 넘겨가며 암호화할 영역을 선택하세요. 우클릭으로 마지막 선택 영역을 삭제할 수 있습니다.</div>
+            <div class="canvas-container">
+                <div class="canvas-wrapper">
+                    <canvas id="previewCanvas" width="1000" height="600"></canvas>
+                    <div id="canvasPlaceholder" class="canvas-placeholder">
+                        🖼️ 파일을 첨부한 후 드래그로 암호화할 영역을 지정하세요.
+                    </div>
+                    <div id="loadingSpinner" class="loading-spinner"></div>
+                </div>
+            </div>
+            <div id="pdfPageControls" style="display:none; text-align:center; margin-top:8px;">
+                <button id="prevPageBtn" type="button">&lt; 이전</button>
+                <span id="pageInfo">1 / 1</span>
+                <button id="nextPageBtn" type="button">다음 &gt;</button>
+            </div>
+        </div>
+        
+        <div class="right-column">
+            <div class="encrypt-form">
+                <div class="upload-section" style="margin-bottom: 20px;">
+                    <button class="upload-btn" onclick="document.getElementById('fileInput').click()" style="width: 100%;">
+                        파일찾기
+                    </button>
+                    <input type="file" id="fileInput" accept=".jpg,.jpeg,.png,.pdf" style="display: none;">
+                    <div id="fileError" class="error"></div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="recipientEmail">수신자 이메일:</label>
+                    <div id="recipientInputs">
+                        <div class="recipient-input-group">
+                          <input type="email" class="recipient-email" required placeholder="수신자 이메일">
+                          <button class="remove-recipient-btn" onclick="removeRecipientInput(this)" style="display: none;">×</button>
+                        </div>
+                    </div>
+                    <button class="add-recipient-btn" onclick="addRecipientInput()">+ 수신자 추가</button>
+                    <div id="emailError" class="error"></div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="outputFilename">저장할 파일 이름(선택):</label>
+                    <input type="text" id="outputFilename" placeholder="기본값: 원본파일명_enc">
+                    <small style="color: #6b7280; display: block; margin-top: 6px;">
+                    확장자 제외 후 입력해주세요.
+                    </small>
+                </div>
+
+                <!-- PDF 품질 설정 (한글 주석: PDF 파일일 때만 표시되는 품질 슬라이더) -->
+                <div class="form-group" id="pdfQualitySelection" style="display: none;">
+                    <label style="margin-bottom: 12px; display: block; font-weight: 600;">PDF 처리 품질:</label>
+                    <div style="margin-bottom: 16px;">
+                        <div style="display: flex; align-items: center; gap: 16px;">
+                            <label style="font-size: 14px; color: #4B5563; min-width: 50px;">표준</label>
+                            <input type="range" id="qualitySlider" name="qualityScale" min="1.0" max="2.0" step="0.1" value="1.7" 
+                                   style="flex: 1; height: 6px; background: #E5E7EB; border-radius: 3px; outline: none;">
+                            <label style="font-size: 14px; color: #4B5563; min-width: 50px;">최고품질</label>
+                        </div>
+                        <div style="text-align: center; margin-top: 8px;">
+                            <span id="qualityValue" style="font-weight: 600; color: #2563EB;">1.7배 (고품질)</span>
+                        </div>
+                        <div style="font-size: 12px; color: #6b7280; margin-top: 8px; text-align: center;">
+                            품질이 높을수록 파일 크기가 증가합니다.<br> 권장: 1.7배 (고품질)
+                        </div>
+                    </div>                    
+                </div>
+                
+                <button id="encryptButton" class="action-btn" disabled>암호화 시작</button>
+                <a href="/" class="back-btn">처음화면으로</a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let roiSelector;
+    let currentFileType = null;
+    let pdfPages = [];
+    let currentPage = 0;
+
+    function addRecipientInput() {
+        const container = document.getElementById('recipientInputs');
+        const inputGroup = document.createElement('div');
+        inputGroup.className = 'recipient-input-group';
+        inputGroup.innerHTML = `
+            <input type="email" class="recipient-email" required placeholder="수신자 이메일">
+            <button class="remove-recipient-btn" onclick="removeRecipientInput(this)">×</button>`;
+        container.appendChild(inputGroup);
+        updateRemoveButtons();
+    }
+        
+    function removeRecipientInput(button) {
+        const inputGroup = button.parentElement;
+        inputGroup.remove();
+        updateRemoveButtons();
+    }
+        
+    function updateRemoveButtons() {
+        const inputGroups = document.querySelectorAll('.recipient-input-group');
+        const removeButtons = document.querySelectorAll('.remove-recipient-btn');
+        
+        if (removeButtons.length > 0) {
+            removeButtons[0].style.display = 'none';
+        }
+        
+        for (let i = 1; i < removeButtons.length; i++) {
+            removeButtons[i].style.display = 'block';
+        }
+    }
+
+    async function displayCurrentPage() {
+        if (pdfPages.length === 0) return;
+        const canvas = document.getElementById('previewCanvas');
+        const ctx = canvas.getContext('2d');
+        const pageInfo = document.getElementById('pageInfo');
+        if (pageInfo) pageInfo.textContent = (currentPage + 1) + ' / ' + pdfPages.length;
+
+        // PDF 페이지 이미지를 ROISelector에 로드
+        await roiSelector.loadImage(pdfPages[currentPage].url);
+        const img = roiSelector.image;
+        
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        // 한글 주석: PDF 이미지를 캔버스 크기에 맞게 축소하여 그리기
+        const scale = Math.min(canvas.width / img.width, canvas.height / img.height);
+        const scaledWidth = img.width * scale;
+        const scaledHeight = img.height * scale;
+        const x = (canvas.width - scaledWidth) / 2;
+        const y = (canvas.height - scaledHeight) / 2;
+        
+        ctx.drawImage(img, x, y, scaledWidth, scaledHeight);
+        roiSelector.updateImageScale(scale, x, y);
+        
+        // 현재 페이지의 ROI 복원
+        if (pdfPages[currentPage].roiList) {
+            roiSelector.setROICoords(pdfPages[currentPage].roiList);
+        } else {
+            roiSelector.clearROIs();
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        roiSelector = new ROISelector('previewCanvas');
+
+        // 파일 input 클릭 시 캔버스 및 ROI 초기화
+        document.getElementById('fileInput').addEventListener('click', function() {
+            roiSelector.clearAll();
+            document.getElementById('canvasPlaceholder').style.display = 'block';
+        });
+
+        // 캔버스 wrapper에 drag&drop 지원
+        const canvasWrapper = document.querySelector('.canvas-wrapper');
+        canvasWrapper.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            canvasWrapper.style.background = '#e0e7ff';
+        });
+        canvasWrapper.addEventListener('dragleave', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            canvasWrapper.style.background = '';
+        });
+        canvasWrapper.addEventListener('drop', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            canvasWrapper.style.background = '';
+            roiSelector.clearAll();
+            if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                document.getElementById('fileInput').files = e.dataTransfer.files;
+                const event = new Event('change');
+                document.getElementById('fileInput').dispatchEvent(event);
+            }
+        });
+
+        // PDF 페이지 컨트롤 버튼 이벤트
+        document.getElementById('prevPageBtn').addEventListener('click', function() {
+            if (currentPage > 0) {
+                pdfPages[currentPage].roiList = roiSelector.getROICoords();
+                currentPage--;
+                displayCurrentPage();
+            }
+        });
+        document.getElementById('nextPageBtn').addEventListener('click', function() {
+            if (currentPage < pdfPages.length - 1) {
+                pdfPages[currentPage].roiList = roiSelector.getROICoords();
+                currentPage++;
+                displayCurrentPage();
+            }
+        });
+
+        // 파일 선택 이벤트
+        document.getElementById('fileInput').addEventListener('change', async function (e) {
+            const file = e.target.files[0];
+            const errorDiv = document.getElementById('fileError');
+            const canvasGuide = document.querySelector('.canvas-guide');
+            const pdfGuide = document.querySelector('.canvas-guide.pdf-mode');
+            const pdfPageControls = document.getElementById('pdfPageControls');
+            const pageInfo = document.getElementById('pageInfo');
+            const canvasPlaceholder = document.getElementById('canvasPlaceholder');
+            const loadingSpinner = document.getElementById('loadingSpinner');
+
+            if (!file) return;
+
+            currentFileType = file.type;
+            const isPDF = file.type === 'application/pdf';
+            const isImage = file.type.match('image/jpeg') || file.type.match('image/png');
+
+            if (!isPDF && !isImage) {
+                errorDiv.textContent = 'JPG, PNG 또는 PDF 형식의 파일만 지원합니다.';
+                return;
+            }
+
+            errorDiv.textContent = '';
+            canvasGuide.style.display = isPDF ? 'none' : 'block';
+            pdfGuide.style.display = isPDF ? 'block' : 'none';
+            canvasPlaceholder.classList.toggle('pdf-mode', isPDF);
+            
+            // PDF 모드 선택 UI 표시/숨김 (한글 주석: PDF일 때만 암호화 방식 선택 가능)
+            const pdfModeSelection = document.getElementById('pdfQualitySelection');
+            pdfModeSelection.style.display = isPDF ? 'block' : 'none';
+
+            if (isPDF) {
+                const formData = new FormData();
+                formData.append('file', file);
+                loadingSpinner.style.display = 'block';
+                canvasPlaceholder.style.display = 'none';
+
+                try {
+                    const response = await fetch('/convert-pdf', {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    if (!response.ok) {
+                        throw new Error('PDF 변환에 실패했습니다.');
+                    }
+
+                    const result = await response.json();
+                    pdfPages = result.pages.map(page => ({ url: page, roiList: [] }));
+                    currentPage = 0;
+                    pdfPageControls.style.display = pdfPages.length > 1 ? 'block' : 'none';
+                    pageInfo.textContent = (currentPage + 1) + ' / ' + pdfPages.length;
+                    await displayCurrentPage();
+                    document.getElementById('encryptButton').disabled = false;
+                } catch (error) {
+                    errorDiv.textContent = error.message;
+                    canvasPlaceholder.style.display = 'block';
+                } finally {
+                    loadingSpinner.style.display = 'none';
+                }
+            } else {
+                pdfPages = [];
+                currentPage = 0;
+                document.getElementById('pdfPageControls').style.display = 'none';
+                const imageUrl = URL.createObjectURL(file);
+                loadingSpinner.style.display = 'block';
+                canvasPlaceholder.style.display = 'none';
+
+                try {
+                    const img = new window.Image();
+                    img.onload = function () {
+                        const canvas = document.getElementById('previewCanvas');
+                        const ctx = canvas.getContext('2d');
+                        
+                        ctx.clearRect(0, 0, canvas.width, canvas.height);
+                        
+                        // 한글 주석: 이미지를 캔버스 크기에 맞게 축소하여 그리기
+                        const scale = Math.min(canvas.width / img.width, canvas.height / img.height);
+                        const scaledWidth = img.width * scale;
+                        const scaledHeight = img.height * scale;
+                        const x = (canvas.width - scaledWidth) / 2;
+                        const y = (canvas.height - scaledHeight) / 2;
+                        
+                        ctx.drawImage(img, x, y, scaledWidth, scaledHeight);
+                        roiSelector.updateImageScale(scale, x, y);
+                        roiSelector.image = img;
+                        roiSelector.draw();
+                        loadingSpinner.style.display = 'none';
+                    };
+                    img.src = imageUrl;
+                    await roiSelector.loadImage(imageUrl);
+                    document.getElementById('encryptButton').disabled = false;
+                } catch (error) {
+                    errorDiv.textContent = '이미지 로드 중 오류가 발생했습니다.';
+                    canvasPlaceholder.style.display = 'block';
+                    loadingSpinner.style.display = 'none';
+                }
+            }
+        });
+
+        // 암호화 버튼 클릭
+        document.getElementById('encryptButton').addEventListener('click', function () {
+            const emailInputs = document.querySelectorAll('.recipient-email');
+            const emailError = document.getElementById('emailError');
+            let roiList = [];
+
+            const recipients = Array.from(emailInputs)
+                .map(input => input.value.trim())
+                .filter(email => email !== '');
+
+            if (recipients.length === 0) {
+                emailError.textContent = '최소 한 명의 수신자 이메일을 입력하세요.';
+                return;
+            }
+
+            if (currentFileType === 'application/pdf') {
+                // PDF의 경우 모든 페이지의 ROI 수집 (빈 rois는 아예 보내지 않음)
+                // 기존: 모든 페이지를 보내고, rois가 비어있을 수 있음
+                // 변경: rois가 비어있는 페이지는 아예 제외
+                roiList = pdfPages.map((page, index) => ({
+                    page: index + 1,
+                    rois: (page.roiList || []).filter(roi => roi && typeof roi.x === 'number')
+                })).filter(page => page.rois.length > 0);
+
+                if (roiList.length === 0) {
+                    alert('최소 한 페이지에 암호화할 영역을 선택하세요.');
+                    return;
+                }
+            } else {
+                // 이미지의 경우 현재 ROI만 사용
+                roiList = roiSelector.getROICoords();
+                if (roiList.length === 0) {
+                    alert('암호화할 영역을 선택하세요.');
+                    return;
+                }
+            }
+
+            emailError.textContent = '';
+
+            const formData = new FormData();
+            formData.append('file', document.getElementById('fileInput').files[0]);
+            formData.append('roiList', JSON.stringify(roiList));
+            formData.append('recipients', JSON.stringify(recipients));
+            formData.append('fileType', currentFileType);
+            
+            // PDF 품질 스케일 추가 (한글 주석: 선택된 품질 스케일 전송)
+            if (currentFileType === 'application/pdf') {
+                const qualityScale = document.getElementById('qualitySlider').value;
+                formData.append('qualityScale', qualityScale);
+                // 선택된 품질 스케일 설정
+            }
+
+            fetch('/encrypt', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(err => {
+                        throw new Error(err.error + (err.details ? '\n\n상세 오류:\n' + err.details : ''));
+                    });
+                }
+                return response.blob();
+            })
+            .then(blob => {
+                const fileInput = document.getElementById('fileInput');
+                const originalFile = fileInput.files[0];
+                const filenameInput = document.getElementById('outputFilename');
+
+                // 파일 형식에 따른 기본 파일명 및 확장자 설정 (한글 주석: PDF와 이미지 구분)
+                let defaultName, extension;
+                if (currentFileType === 'application/pdf') {
+                    extension = '.pdf';
+                    defaultName = 'encrypted_document.pdf';
+                } else {
+                    extension = '.jpg';
+                    defaultName = 'encrypted_file.jpg';
+                }
+
+                if (originalFile) {
+                    const nameParts = originalFile.name.split('.');
+                    const base = nameParts.slice(0, -1).join('.') || originalFile.name;
+                    defaultName = base + '_enc' + extension;
+                }
+
+                let filename = filenameInput?.value?.trim() || '';
+                if (filename === '') filename = defaultName;
+                
+                // 확장자 처리: 파일 형식에 맞는 확장자로 강제 설정
+                if (!filename.endsWith(extension)) {
+                    filename = filename.replace(/\.[^/.]+$/, '');
+                    filename += extension;
+                }
+
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            })
+            .catch(error => {
+                // 암호화 오류 처리
+                alert('암호화 중 오류가 발생했습니다:\n' + error.message);
+            });
+        });
+
+        // 품질 슬라이더 이벤트 처리 (한글 주석: 슬라이더 값 변경 시 텍스트 업데이트)
+        const qualitySlider = document.getElementById('qualitySlider');
+        const qualityValue = document.getElementById('qualityValue');
+        
+        function updateQualityText() {
+            if (qualitySlider && qualityValue) {
+                const value = parseFloat(qualitySlider.value);
+                let qualityText = '';
+                
+                if (value <= 1.1) {
+                    qualityText = '표준 품질';
+                } else if (value <= 1.7) {
+                    qualityText = '고품질';
+                } else {
+                    qualityText = '최고품질';
+                }
+                
+                qualityValue.textContent = `${value.toFixed(1)}배 (${qualityText})`;
+            }
+        }
+        
+        if (qualitySlider) {
+            // input 이벤트와 change 이벤트 모두 처리
+            qualitySlider.addEventListener('input', updateQualityText);
+            qualitySlider.addEventListener('change', updateQualityText);
+            
+            // 페이지 로드 시 초기값 설정
+            updateQualityText();
+        }
+    });
+</script>
+{% endblock %}

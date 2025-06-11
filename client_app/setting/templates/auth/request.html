@@ -1,0 +1,156 @@
+{% extends "layout.html" %}
+
+{% block title %}이메일 인증 - ENCRA{% endblock %}
+
+{% block page_title %}이메일 인증{% endblock %}
+
+{% block additional_styles %}
+<style>
+    .auth-container {
+        max-width: 500px;
+        margin: 0 auto;
+        padding: 40px;
+    }
+    
+    .auth-form {
+        background-color: white;
+        border-radius: 8px;
+        padding: 40px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        border: 1px solid #e5e7eb;
+    }
+    
+    .form-group {
+        margin-bottom: 20px;
+    }
+    
+    .form-group label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: 500;
+        color: #374151;
+    }
+    
+    .form-group input {
+        width: 100%;
+        padding: 12px 14px;
+        font-size: 15px;
+        line-height: 1.4;
+        border: 1px solid #d1d5db;
+        border-radius: 6px;
+    }
+    
+    .form-group input:focus {
+        outline: none;
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    }
+    
+    .btn-primary {
+        background-color: #3b82f6;
+        color: white;
+        padding: 12px 24px;
+        border: none;
+        border-radius: 8px;
+        font-size: 16px;
+        font-weight: 600;
+        cursor: pointer;
+        width: 100%;
+        margin-bottom: 20px;
+    }
+    
+    .btn-primary:hover {
+        background-color: #2563eb;
+    }
+    
+    .btn-secondary {
+        background-color: #6b7280;
+        color: white;
+        padding: 12px 24px;
+        border: none;
+        border-radius: 8px;
+        font-size: 16px;
+        font-weight: 600;
+        text-align: center;
+        text-decoration: none;
+        display: block;
+        transition: background-color 0.2s;
+    }
+    
+    .btn-secondary:hover {
+        background-color: #4b5563;
+    }
+    
+    .info-text {
+        background-color: #f3f4f6;
+        border-radius: 6px;
+        padding: 16px;
+        margin: 20px 0;
+    }
+    
+    .info-text p {
+        margin: 0;
+        font-size: 14px;
+        color: #6b7280;
+        line-height: 1.5;
+    }
+    
+    .info-text p + p {
+        margin-top: 8px;
+    }
+    
+    .alert {
+        padding: 12px 16px;
+        border-radius: 6px;
+        margin-bottom: 20px;
+        font-size: 14px;
+    }
+    
+    .alert-success {
+        background-color: #d1fae5;
+        border: 1px solid #a7f3d0;
+        color: #065f46;
+    }
+    
+    .alert-error {
+        background-color: #fee2e2;
+        border: 1px solid #fecaca;
+        color: #991b1b;
+    }
+    
+    .alert-info {
+        background-color: #dbeafe;
+        border: 1px solid #bfdbfe;
+        color: #1e40af;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="auth-container">
+    <div class="auth-form">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }}">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+        
+        <form method="POST" action="{{ url_for('auth.request_auth') }}">
+            <div class="form-group">
+                <label for="email">이메일 주소:</label>
+                <input type="email" id="email" name="email" required placeholder="example@email.com">
+            </div>
+            <button type="submit" class="btn-primary">인증 요청</button>
+        </form>
+        
+        <div class="info-text">
+            <p>* 입력하신 이메일로 인증 링크가 발송됩니다.</p>
+            <p>* 인증 후 개인키가 자동으로 발급됩니다.</p>
+        </div>
+        
+        <a href="{{ url_for('index') }}" class="btn-secondary">홈으로 돌아가기</a>
+    </div>
+</div>
+{% endblock %} 
