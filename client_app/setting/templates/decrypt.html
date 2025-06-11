@@ -1,0 +1,712 @@
+{% extends "layout.html" %}
+
+{% block title %}이미지 복호화 - ENCRA{% endblock %}
+
+{% block page_title %}이미지 복호화{% endblock %}
+
+{% block additional_styles %}
+<style>
+    .decrypt-container {
+        padding: 20px;
+        max-width: 1400px; /* 한글 주석: 전체 컨테이너 크기 증가로 미리보기 영역 확장 */
+    }
+
+    .canvas-guide {
+        margin-bottom: 10px;
+        font-size: 18px;
+        color: #4B5563;
+    }
+
+    .top-bar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    /* 두 컬럼 레이아웃 (한글 주석: encrypt.html과 동일한 레이아웃) */
+    .decrypt-layout {
+        display: flex;
+        gap: 24px;
+        margin-top: 20px;
+    }
+    
+    .left-column {
+        flex: 1;
+        min-width: 0; /* 플렉스박스 오버플로우 방지 */
+    }
+    
+    .right-column {
+        width: 300px; /* 한글 주석: 우측 패널 크기 축소로 미리보기 영역 더 넓게 확보 */
+        position: sticky;
+        top: 20px;
+        align-self: flex-start;
+        margin-top: 38px; /* 한글 주석: canvas-guide 높이에 맞춰 정렬 (18px + 10px margin + 10px 여유) */
+    }
+
+    .preview-box {
+        width: 100%;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        background-color: #f8fafc;
+        display: flex;
+        align-items: center; /* 한글 주석: 높이 중앙 정렬 */
+        justify-content: space-between;
+        padding: 20px;
+        gap: 20px;
+        margin-bottom: 20px; /* 한글 주석: 암호화 페이지의 canvas-container와 동일하게 하단 마진만 적용 */
+        min-height: 600px; /* 한글 주석: 미리보기 박스 높이 증가 */
+    }
+
+    .image-column {
+        flex: 1;
+        display: flex;                /* 🔹 Flexbox 적용 */
+        flex-direction: column;       /* 세로 방향 정렬 */
+        align-items: center;          /* ✅ 가로 중앙 정렬 */
+        justify-content: center;      /* ✅ 세로 중앙 정렬 */
+        text-align: center;
+        position: relative;
+        min-height: 500px; /* 한글 주석: 최소 높이 설정으로 중앙정렬 기준점 제공 */
+    }
+
+    .arrow-icon {
+        font-size: 2rem;
+        color: #9ca3af;
+        align-self: center; /* 한글 주석: 화살표도 중앙 정렬 */
+    }
+    .preview-image {
+        max-width: 100%;
+        display: none;
+        max-height: 500px; /* 한글 주석: 더 큰 미리보기 */
+        border-radius: 8px;
+    }
+
+    .image-preview-text {
+        color: #9CA3AF;
+        font-size: 16px;
+    }
+
+    /* 로딩 스피너 (한글 주석: encrypt.html과 동일한 스피너 스타일) */
+    .loading-spinner {
+        display: none;
+        width: 50px;
+        height: 50px;
+        border: 5px solid #f3f3f3;
+        border-top: 5px solid #2563EB;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+    }
+
+    @keyframes spin {
+        0% { transform: translate(-50%, -50%) rotate(0deg); }
+        100% { transform: translate(-50%, -50%) rotate(360deg); }
+    }
+
+    .upload-btn {
+        background-color: #4F46E5;
+        color: white;
+        padding: 12px 24px;
+        border: none;
+        border-radius: 8px;
+        font-size: 16px;
+        font-weight: 600;
+        cursor: pointer;
+        margin-bottom: 20px;
+    }
+
+    .upload-btn:hover {
+        background-color: #4338CA;
+    }
+
+    /* 폼 스타일 (한글 주석: encrypt.html과 동일한 우측 폼) */
+    .decrypt-form {
+        background-color: white;
+        border-radius: 8px;
+        padding: 20px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        border: 1px solid #e5e7eb;
+    }
+    
+    .form-group {
+        margin-bottom: 20px;
+    }
+    
+    .form-group label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: 500;
+    }
+    
+    .form-group input {
+        width: 100%;
+        padding: 12px 14px;  /* 기존보다 padding 증가 */
+        font-size: 15px;     /* placeholder가 잘리지 않도록 글자 크기 지정 */
+        line-height: 1.4;    /* 줄 간격 추가로 가독성 개선 */
+        border: 1px solid #d1d5db;
+        border-radius: 6px;
+    }
+
+    .action-btn {
+        background-color: #2563EB;
+        color: white;
+        padding: 12px 24px;
+        border: none;
+        border-radius: 8px;
+        font-size: 16px;
+        font-weight: 600;
+        cursor: pointer;
+        width: 100%;
+        margin-bottom: 12px;
+    }
+
+    .action-btn:hover {
+        background-color: #1D4ED8;
+    }
+
+    .action-btn:disabled {
+        background-color: #9CA3AF;  /* 회색 */
+        cursor: not-allowed;
+        color: white;
+    }
+
+    .back-btn {
+        background-color: #6b7280;
+        color: white;
+        padding: 12px 24px;
+        border: none;
+        border-radius: 8px;
+        font-size: 16px;
+        font-weight: 600;
+        text-align: center;
+        text-decoration: none;
+        display: block;
+        transition: background-color 0.2s;
+        width: 100%;
+    }
+
+    .back-btn:hover {
+        background-color: #4b5563;
+    }
+
+    .error {
+        color: #DC2626;
+        margin-top: 5px;
+        font-size: 14px;
+    }
+
+    .loading-message {
+        margin: 20px 0;
+        font-size: 16px;
+        color: #4B5563;
+        text-align: center;
+    }
+
+    /* PDF 페이지 컨트롤 스타일 (한글 주석: encrypt.html과 동일한 스타일) */
+    #encryptedPdfControls button, #decryptedPdfControls button {
+        background-color: #2563EB;
+        color: white;
+        padding: 8px 16px;
+        border: none;
+        border-radius: 6px;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        margin: 0 4px;
+    }
+
+    #encryptedPdfControls button:hover, #decryptedPdfControls button:hover {
+        background-color: #1D4ED8;
+    }
+
+    #encryptedPdfControls button:disabled, #decryptedPdfControls button:disabled {
+        background-color: #9CA3AF;
+        cursor: not-allowed;
+    }
+
+    #encPageInfo, #decPageInfo {
+        display: inline-block;
+        padding: 8px 16px;
+        font-size: 14px;
+        font-weight: 600;
+        color: #4B5563;
+    }
+
+    /* 반응형 레이아웃 (한글 주석: encrypt.html과 동일한 반응형) */
+    @media (max-width: 900px) {
+        .decrypt-layout {
+            flex-direction: column;
+        }
+        
+        .right-column {
+            width: 100%;
+            position: static;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="decrypt-container">
+    <div class="decrypt-layout">
+        <div class="left-column">
+            <div class="canvas-guide">🖼️ 암호화된 파일을 첨부하거나 드래그하여 간편하게 복호화하세요.</div>
+            <div class="preview-box" id="previewBox">
+                <div class="image-column">
+                    <span class="image-preview-text" id="previewPlaceholder">🖼️ 암호화된 파일을 첨부하거나 드래그하여 간편하게 복호화하세요.</span>
+                    <img id="encryptedImage" class="preview-image" alt="암호화 파일">
+                    <canvas id="encryptedCanvas" width="500" height="400" style="display: none; max-width: 100%; border-radius: 8px;"></canvas>
+                    <div id="encryptedLoadingSpinner" class="loading-spinner"></div>
+                    
+                    <!-- 암호화된 파일용 페이지 컨트롤 (한글 주석: 각 미리보기 바로 아래 배치) -->
+                    <div id="encryptedPdfControls" style="display:none; text-align:center; margin-top:12px;">
+                        <button id="encPrevPageBtn" type="button">&lt; 이전</button>
+                        <span id="encPageInfo">1 / 1</span>
+                        <button id="encNextPageBtn" type="button">다음 &gt;</button>
+                    </div>
+                </div>
+                
+                <div class="arrow-icon">➡️</div>
+                
+                <div class="image-column">
+                    <span class="image-preview-text" id="decryptedPlaceholder">복호화된 파일</span>
+                    <img id="previewImage" class="preview-image" alt="복호화 이미지">
+                    <canvas id="decryptedCanvas" width="500" height="400" style="display: none; max-width: 100%; border-radius: 8px;"></canvas>
+                    <div id="decryptedLoadingSpinner" class="loading-spinner"></div>
+                    
+                    <!-- 복호화된 파일용 페이지 컨트롤 (한글 주석: 각 미리보기 바로 아래 배치) -->
+                    <div id="decryptedPdfControls" style="display:none; text-align:center; margin-top:12px;">
+                        <button id="decPrevPageBtn" type="button">&lt; 이전</button>
+                        <span id="decPageInfo">1 / 1</span>
+                        <button id="decNextPageBtn" type="button">다음 &gt;</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="right-column">
+            <div class="decrypt-form">
+                <div class="upload-section" style="margin-bottom: 20px;">
+                    <button class="upload-btn" onclick="document.getElementById('imageInput').click()" style="width: 100%;">
+                        파일찾기
+                    </button>
+                    <input type="file" id="imageInput" accept=".jpg,.jpeg,.pdf" style="display: none;">
+                    <div id="fileError" class="error"></div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="outputFilename">저장할 파일 이름(선택):</label>
+                    <input type="text" id="outputFilename" placeholder="예: decrypted_image_dec">
+                    <small style="color: #6b7280; display: block; margin-top: 6px;">
+                        확장자 제외 후 입력해주세요.
+                    </small>
+                    <small style="color: #6b7280; display: block; margin-top: 6px;">
+                        입력하지 않으면 원본 파일명_dec로 저장됩니다.
+                    </small>
+                </div>
+
+                <button id="decryptButton" class="action-btn" disabled>복호화 시작</button>
+                <button id="downloadButton" class="action-btn" style="display: none;">파일 다운로드</button>
+                <a href="/" class="back-btn">처음화면으로</a>
+            </div>
+        </div>
+    </div>
+
+    <div id="loadingMessage" class="loading-message" style="display: none;">복호화 중...</div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const imageInput = document.getElementById('imageInput');
+        const previewImage = document.getElementById('previewImage');
+        const decryptedPlaceholder = document.getElementById('decryptedPlaceholder');
+        const encryptedImage = document.getElementById('encryptedImage');
+        const previewPlaceholder = document.getElementById('previewPlaceholder');
+        const loadingMessage = document.getElementById('loadingMessage');
+        const downloadButton = document.getElementById('downloadButton');
+        const errorDiv = document.getElementById('fileError');
+        
+        // PDF 관련 변수들 (한글 주석: encrypt.html과 동일한 PDF 처리 로직)
+        let currentFileType = null;
+        let encryptedPdfPages = [];
+        let decryptedPdfPages = [];
+        let currentEncPage = 0;
+        let currentDecPage = 0;
+
+        // 파일 초기화 함수 (한글 주석: 새 파일 선택 시 이전 미리보기 제거)
+        function resetPreview() {
+            previewImage.style.display = 'none';
+            encryptedImage.style.display = 'none';
+            document.getElementById('encryptedCanvas').style.display = 'none';
+            document.getElementById('decryptedCanvas').style.display = 'none';
+            previewPlaceholder.style.display = 'block';
+            decryptedPlaceholder.style.display = 'block';
+            downloadButton.style.display = 'none';
+            loadingMessage.style.display = 'none';
+            document.getElementById('encryptedPdfControls').style.display = 'none';
+            document.getElementById('decryptedPdfControls').style.display = 'none';
+            document.getElementById('decryptButton').disabled = true;
+            errorDiv.textContent = '';
+            
+            // 스피너 숨기기 (한글 주석: 모든 스피너 초기화)
+            document.getElementById('encryptedLoadingSpinner').style.display = 'none';
+            document.getElementById('decryptedLoadingSpinner').style.display = 'none';
+            
+            // PDF 변수들 초기화
+            encryptedPdfPages = [];
+            decryptedPdfPages = [];
+            currentEncPage = 0;
+            currentDecPage = 0;
+            currentFileType = null;
+        }
+
+        // PDF 페이지 표시 함수들 (한글 주석: 암호화된 PDF와 복호화된 PDF 페이지 관리)
+        async function displayEncryptedPage() {
+            if (encryptedPdfPages.length === 0) return;
+            const canvas = document.getElementById('encryptedCanvas');
+            const ctx = canvas.getContext('2d');
+            const pageInfo = document.getElementById('encPageInfo');
+            pageInfo.textContent = (currentEncPage + 1) + ' / ' + encryptedPdfPages.length;
+
+            // 페이지 버튼 활성화/비활성화 (한글 주석: 첫 페이지/마지막 페이지 처리)
+            document.getElementById('encPrevPageBtn').disabled = currentEncPage === 0;
+            document.getElementById('encNextPageBtn').disabled = currentEncPage === encryptedPdfPages.length - 1;
+
+            const img = new Image();
+            img.onload = function() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                const scale = Math.min(canvas.width / img.width, canvas.height / img.height);
+                const x = (canvas.width - img.width * scale) / 2;
+                const y = (canvas.height - img.height * scale) / 2;
+                ctx.drawImage(img, x, y, img.width * scale, img.height * scale);
+            };
+            img.src = encryptedPdfPages[currentEncPage];
+        }
+
+        async function displayDecryptedPage() {
+            if (decryptedPdfPages.length === 0) return;
+            const canvas = document.getElementById('decryptedCanvas');
+            const ctx = canvas.getContext('2d');
+            const pageInfo = document.getElementById('decPageInfo');
+            pageInfo.textContent = (currentDecPage + 1) + ' / ' + decryptedPdfPages.length;
+
+            // 페이지 버튼 활성화/비활성화 (한글 주석: 첫 페이지/마지막 페이지 처리)
+            document.getElementById('decPrevPageBtn').disabled = currentDecPage === 0;
+            document.getElementById('decNextPageBtn').disabled = currentDecPage === decryptedPdfPages.length - 1;
+
+            const img = new Image();
+            img.onload = function() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                const scale = Math.min(canvas.width / img.width, canvas.height / img.height);
+                const x = (canvas.width - img.width * scale) / 2;
+                const y = (canvas.height - img.height * scale) / 2;
+                ctx.drawImage(img, x, y, img.width * scale, img.height * scale);
+            };
+            img.src = decryptedPdfPages[currentDecPage];
+        }
+
+        // 복호화 검증 함수 (한글 주석: 원본과 복호화 결과가 다른지 확인)
+        async function verifyDecryption(originalPages, decryptedPages) {
+            if (!originalPages || !decryptedPages) return false;
+            if (originalPages.length !== decryptedPages.length) return true; // 페이지 수가 다르면 복호화됨
+            
+            // 첫 번째 페이지 비교 (간단한 검증)
+            if (originalPages.length > 0 && decryptedPages.length > 0) {
+                return originalPages[0] !== decryptedPages[0];
+            }
+            return false;
+        }
+
+        // 파일 처리 함수 (한글 주석: 이미지/PDF 파일 처리 및 미리보기)
+        async function handleFile(file) {
+            if (!file) return;
+
+            // 파일 형식 검증
+            if (!file.type.match('image/jpeg') && file.type !== 'application/pdf') {
+                errorDiv.textContent = 'JPG 또는 PDF 형식의 파일만 지원합니다.';
+                resetPreview();
+                return;
+            }
+
+            errorDiv.textContent = '';
+            currentFileType = file.type;
+            
+            // 원본 파일 정보 저장 (한글 주석: 복호화 비교용)
+            window.originalFileSize = file.size;
+            // 원본 파일 정보 기록
+            
+            // 미리보기 초기화 후 새 파일 표시
+            resetPreview();
+            document.getElementById('decryptButton').disabled = false;
+            previewPlaceholder.style.display = 'none';
+
+            // 파일 형식에 따른 미리보기 처리
+            if (file.type.match('image/jpeg')) {
+                // JPG 파일의 경우 이미지 미리보기
+                encryptedImage.style.display = 'block';
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    encryptedImage.src = event.target.result;
+                };
+                reader.readAsDataURL(file);
+            } else if (file.type === 'application/pdf') {
+                // PDF 파일의 경우 변환 후 미리보기 (한글 주석: encrypt.html과 동일한 PDF 처리)
+                document.getElementById('encryptedLoadingSpinner').style.display = 'block';
+                previewPlaceholder.style.display = 'none';
+                
+                const formData = new FormData();
+                formData.append('file', file);
+                
+                try {
+                    const response = await fetch('/convert-pdf', {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    if (!response.ok) {
+                        throw new Error('PDF 변환에 실패했습니다.');
+                    }
+
+                    const result = await response.json();
+                    encryptedPdfPages = result.pages;
+                    currentEncPage = 0;
+                    
+                    // PDF 캔버스 표시
+                    document.getElementById('encryptedCanvas').style.display = 'block';
+                    document.getElementById('encryptedPdfControls').style.display = encryptedPdfPages.length > 1 ? 'block' : 'none';
+                    
+                    await displayEncryptedPage();
+                    
+                } catch (error) {
+                    errorDiv.textContent = error.message;
+                    previewPlaceholder.innerHTML = `📄 PDF 파일: ${file.name} (변환 실패)`;
+                    previewPlaceholder.style.display = 'block';
+                } finally {
+                    document.getElementById('encryptedLoadingSpinner').style.display = 'none';
+                }
+            }
+        }
+
+        // 파일 input 클릭 시 초기화 및 처리
+        imageInput.addEventListener('click', function() {
+            resetPreview();
+        });
+
+        // 파일 선택 시 처리
+        imageInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            handleFile(file);
+        });
+
+        // PDF 페이지 컨트롤 이벤트 리스너들 (한글 주석: 암호화된 PDF 페이지 넘기기)
+        document.getElementById('encPrevPageBtn').addEventListener('click', function() {
+            if (currentEncPage > 0) {
+                currentEncPage--;
+                displayEncryptedPage();
+            }
+        });
+
+        document.getElementById('encNextPageBtn').addEventListener('click', function() {
+            if (currentEncPage < encryptedPdfPages.length - 1) {
+                currentEncPage++;
+                displayEncryptedPage();
+            }
+        });
+
+        // 복호화된 PDF 페이지 넘기기
+        document.getElementById('decPrevPageBtn').addEventListener('click', function() {
+            if (currentDecPage > 0) {
+                currentDecPage--;
+                displayDecryptedPage();
+            }
+        });
+
+        document.getElementById('decNextPageBtn').addEventListener('click', function() {
+            if (currentDecPage < decryptedPdfPages.length - 1) {
+                currentDecPage++;
+                displayDecryptedPage();
+            }
+        });
+
+        // 드래그앤드롭 기능 추가 (한글 주석: encrypt.html과 동일한 드래그앤드롭 지원)
+        const previewBox = document.getElementById('previewBox');
+        
+        previewBox.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            previewBox.style.background = '#e0e7ff';
+        });
+
+        previewBox.addEventListener('dragleave', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            previewBox.style.background = '';
+        });
+
+        previewBox.addEventListener('drop', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            previewBox.style.background = '';
+            
+            if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                const file = e.dataTransfer.files[0];
+                imageInput.files = e.dataTransfer.files;
+                handleFile(file);
+            }
+        });
+
+        // 복호화 버튼 클릭 시 복호화 요청
+        document.getElementById('decryptButton').addEventListener('click', async function() {
+            const file = imageInput.files[0];
+            if (!file) return;
+
+            // 복호화된 파일 영역에 스피너 표시 (한글 주석: 복호화 시작 시 우측 영역에 스피너)
+            document.getElementById('decryptedLoadingSpinner').style.display = 'block';
+            decryptedPlaceholder.style.display = 'none';
+
+            const formData = new FormData();
+            formData.append('image', file);
+
+            try {
+                const response = await fetch('/decrypt', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    let errorMessage = '복호화 중 오류가 발생했습니다.';
+                    try {
+                        const error = await response.json();
+                        errorMessage = error.error + (error.details ? '\n\n상세 오류:\n' + error.details : '');
+                    } catch (e) {
+                        errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+                    }
+                    throw new Error(errorMessage);
+                }
+
+                const blob = await response.blob();
+                const url = URL.createObjectURL(blob);
+                
+                // 파일 형식에 따른 결과 표시 (한글 주석: PDF/이미지 구분하여 처리)
+                if (file.type === 'application/pdf') {
+                    // PDF 복호화 결과를 변환하여 페이지별로 표시
+                    try {
+                        // blob을 File 객체로 변환 (한글 주석: 더 정확한 파일 전송)
+                        const decryptedFile = new File([blob], 'decrypted.pdf', { 
+                            type: 'application/pdf',
+                            lastModified: Date.now()
+                        });
+                        
+                        const pdfFormData = new FormData();
+                        pdfFormData.append('file', decryptedFile);
+                        
+                        // 파일 크기 비교 및 검증
+                        if (Math.abs(blob.size - window.originalFileSize) < 100) {
+                            // 파일 크기가 거의 동일한 경우 처리
+                        }
+                        
+                        const pdfResponse = await fetch('/convert-pdf', {
+                            method: 'POST',
+                            body: pdfFormData
+                        });
+                        
+                        if (pdfResponse.ok) {
+                            const pdfResult = await pdfResponse.json();
+                            decryptedPdfPages = pdfResult.pages;
+                            currentDecPage = 0;
+                            
+                            // 복호화 성공 여부 확인 (한글 주석: 원본과 다른지 확인)
+                            const isDecrypted = await verifyDecryption(encryptedPdfPages, decryptedPdfPages);
+                            
+                            document.getElementById('decryptedCanvas').style.display = 'block';
+                            document.getElementById('decryptedPdfControls').style.display = decryptedPdfPages.length > 1 ? 'block' : 'none';
+                            await displayDecryptedPage();
+                            
+                            // 복호화 결과 검증 및 처리
+                            if (!isDecrypted) {
+                                // 복호화 결과가 원본과 동일한 경우 처리
+                            }
+                        } else {
+                            const errorText = await pdfResponse.text();
+                            // PDF 변환 실패 처리
+                            decryptedPlaceholder.innerHTML = `📄 복호화된 PDF (미리보기 실패: ${pdfResponse.status})`;
+                            decryptedPlaceholder.style.display = 'block';
+                        }
+                    } catch (pdfError) {
+                        // PDF 변환 오류 처리
+                        decryptedPlaceholder.innerHTML = `📄 복호화된 PDF (변환 오류: ${pdfError.message})`;
+                        decryptedPlaceholder.style.display = 'block';
+                    }
+                    
+                    downloadButton.textContent = 'PDF 다운로드';
+                } else {
+                    // 이미지 복호화 결과 표시
+                    previewImage.src = url;
+                    previewImage.style.display = 'block';
+                    downloadButton.textContent = '이미지 다운로드';
+                }
+                
+                downloadButton.style.display = 'block';
+
+                // 다운로드 기능 설정 (한글 주석: 파일명 설정 기능 추가)
+                downloadButton.onclick = function() {
+                    const filenameInput = document.getElementById('outputFilename');
+                    
+                    // 파일 형식에 따른 기본 파일명 및 확장자 설정 (한글 주석: PDF와 이미지 구분)
+                    let defaultName, extension;
+                    if (file.type === 'application/pdf') {
+                        extension = '.pdf';
+                        defaultName = 'decrypted_document.pdf';
+                    } else {
+                        extension = '.jpg';
+                        defaultName = 'decrypted_image.jpg';
+                    }
+
+                    if (file) {
+                        const nameParts = file.name.split('.');
+                        const base = nameParts.slice(0, -1).join('.') || file.name;
+                        defaultName = base + '_dec' + extension;
+                    }
+
+                    let filename = filenameInput?.value?.trim() || '';
+                    if (filename === '') filename = defaultName;
+                    
+                    // 확장자 처리: 파일 형식에 맞는 확장자로 강제 설정
+                    if (!filename.endsWith(extension)) {
+                        filename = filename.replace(/\.[^/.]+$/, '');
+                        filename += extension;
+                    }
+
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = filename;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    
+                    // 다운로드 후 URL 정리
+                    setTimeout(() => {
+                        URL.revokeObjectURL(url);
+                    }, 1000);
+                };
+            } catch (error) {
+                // 복호화 오류 처리
+                if (error.message.includes('개인키를 찾을 수 없습니다')) {
+                    errorDiv.textContent = '이 기기에서 발급된 개인키가 없습니다. 먼저 이메일 인증을 통해 개인키를 발급받아주세요.';
+                } else {
+                    errorDiv.textContent = error.message;
+                }
+                // 오류 발생 시 placeholder 다시 표시
+                decryptedPlaceholder.style.display = 'block';
+            } finally {
+                // 복호화 완료 후 스피너 숨기기
+                document.getElementById('decryptedLoadingSpinner').style.display = 'none';
+            }
+        });
+    });
+</script>
+{% endblock %}

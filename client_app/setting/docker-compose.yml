@@ -1,0 +1,11 @@
+version: '3.9'
+services:
+  client:
+    build: .
+    container_name: encra_client
+    volumes:
+      - .:/app
+    ports:
+      - "${PORT}:${PORT}"
+    env_file:
+      - .env

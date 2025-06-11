@@ -1,0 +1,11 @@
+version: '3.9'
+services:
+  pkg:
+    build: .
+    container_name: encra_pkg
+    ports:
+      - "6543:6543"
+    volumes:
+      - .:/app
+    env_file:
+      - .env

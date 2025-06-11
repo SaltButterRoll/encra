@@ -1,0 +1,16 @@
+# Python
+__pycache__/
+*.pyc
+
+# Environment
+.env
+/venv/
+# Uploads
+static/uploads/
+
+/setting/venv/
+/setting/encra_client/
+
+/build/
+/dist/
+*.spec
